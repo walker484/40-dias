@@ -1,0 +1,236 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Planejamento Financeiro - 40 Dias</title>
+
+<style>
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 20px;
+  background: #ffffff;
+  color: #222;
+  font-family: Arial, sans-serif;
+}
+
+main {
+  max-width: 760px;
+  margin: auto;
+}
+
+h1 {
+  font-size: 25px;
+}
+
+.resumo {
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 18px;
+  margin: 20px 0;
+}
+
+.valor {
+  font-size: 28px;
+  font-weight: bold;
+  color: #168447;
+}
+
+button {
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: #168447;
+  color: white;
+  font-size: 15px;
+  cursor: pointer;
+  margin: 4px 2px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+  font-size: 14px;
+}
+
+th, td {
+  text-align: left;
+  padding: 12px 5px;
+  border-bottom: 1px solid #eee;
+}
+
+th {
+  background: #f6f6f6;
+}
+
+@media (max-width: 480px) {
+  body { padding: 12px; }
+  table { font-size: 12px; }
+  th, td { padding: 10px 3px; }
+}
+</style>
+</head>
+
+<body>
+<main>
+  <h1>Planejamento Financeiro</h1>
+  <p>Controle de entradas durante 40 dias úteis.</p>
+
+  <div class="resumo">
+    <p>Saldo acumulado previsto</p>
+    <div class="valor" id="total">R$ 0,00</div>
+    <p id="progresso">0 de 40 dias</p>
+    <p id="inicio"></p>
+  </div>
+
+  <button onclick="gerarPlano()">
+    Gerar planejamento
+  </button>
+
+  <button onclick="exportarCSV()">
+    Exportar histórico
+  </button>
+
+  <div style="overflow-x:auto">
+    <table>
+      <thead>
+        <tr>
+          <th>Dia</th>
+          <th>Data</th>
+          <th>Entrada</th>
+          <th>Acumulado</th>
+        </tr>
+      </thead>
+      <tbody id="historico"></tbody>
+    </table>
+  </div>
+</main>
+
+<script>
+const CHAVE = "planejamento-financeiro-40";
+const moeda = valor => valor.toLocaleString("pt-BR", {
+  style: "currency",
+  currency: "BRL"
+});
+
+function gerarPlano() {
+  const salvo = localStorage.getItem(CHAVE);
+
+  if (salvo) {
+    const continuar = confirm(
+      "Já existe um planejamento salvo. " +
+      "Deseja criar outro planejamento a partir de hoje? " +
+      "O histórico anterior será substituído."
+    );
+
+    if (!continuar) {
+      mostrarPlano(JSON.parse(salvo));
+      return;
+    }
+  }
+
+  const dias = [];
+  let data = new Date();
+  data.setHours(12, 0, 0, 0);
+
+  while (data.getDay() === 0 || data.getDay() === 6) {
+    data.setDate(data.getDate() + 1);
+  }
+
+  let acumulado = 0;
+
+  for (let dia = 1; dia <= 40; dia++) {
+    const entrada = dia === 1 ? 250 : 180;
+    acumulado += entrada;
+
+    dias.push({
+      dia,
+      data: data.toISOString().slice(0, 10),
+      entrada,
+      acumulado
+    });
+
+    data.setDate(data.getDate() + 1);
+
+    while (data.getDay() === 0 || data.getDay() === 6) {
+      data.setDate(data.getDate() + 1);
+    }
+  }
+
+  localStorage.setItem(CHAVE, JSON.stringify(dias));
+  mostrarPlano(dias);
+}
+
+function mostrarPlano(dias) {
+  const corpo = document.getElementById("historico");
+  corpo.innerHTML = "";
+
+  dias.forEach(item => {
+    const [ano, mes, dia] = item.data.split("-");
+    const dataFormatada = `${dia}/${mes}/${ano}`;
+
+    corpo.innerHTML += `
+      <tr>
+        <td>${item.dia}</td>
+        <td>${dataFormatada}</td>
+        <td>${moeda(item.entrada)}</td>
+        <td><strong>${moeda(item.acumulado)}</strong></td>
+      </tr>`;
+  });
+
+  const ultimo = dias[dias.length - 1];
+
+  document.getElementById("total").textContent =
+    moeda(ultimo.acumulado);
+
+  document.getElementById("progresso").textContent =
+    `${dias.length} de 40 dias úteis`;
+
+  document.getElementById("inicio").textContent =
+    "Primeiro dia: " + dias[0].data.split("-").reverse().join("/");
+}
+
+function exportarCSV() {
+  const salvo = localStorage.getItem(CHAVE);
+
+  if (!salvo) {
+    alert("Gere o planejamento primeiro.");
+    return;
+  }
+
+  const dias = JSON.parse(salvo);
+  const linhas = [
+    "Dia;Data;Entrada;Acumulado",
+    ...dias.map(item =>
+      `${item.dia};${item.data};${item.entrada.toFixed(2)};${item.acumulado.toFixed(2)}`
+    )
+  ];
+
+  const arquivo = new Blob(
+    ["\uFEFF" + linhas.join("\n")],
+    { type: "text/csv;charset=utf-8;" }
+  );
+
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(arquivo);
+  link.download = "historico-40-dias.csv";
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+const existente = localStorage.getItem(CHAVE);
+
+if (existente) {
+  mostrarPlano(JSON.parse(existente));
+} else {
+  gerarPlano();
+}
+</script>
+</body>
+</html>
